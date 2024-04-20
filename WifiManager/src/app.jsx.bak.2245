@@ -1,0 +1,87 @@
+import React, { useState, useEffect } from 'react';
+import cockpit from 'cockpit';
+import ActiveNetwork from './component/network/ActiveNetwork.jsx';
+import NetworkTable from './component/network/NetworkTable.jsx';
+import SearchBar from './component/network/SearchBar.jsx';
+import channelToFrequency from './component/network/utils/channelToFrequency.jsx';
+import './app.scss';
+const _ = cockpit.gettext;
+
+export const Application = () => {
+  const [hostname, setHostname] = useState(_('Unknown'));
+  const [availableNetworks, setAvailableNetworks] = useState([]);
+  const [activeNetwork, setActiveNetwork] = useState(null);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    cockpit.file('/etc/hostname').watch(content => {
+      setHostname(content.trim());
+    });
+    fetchNetworkInfo();
+  }, []);
+
+async fetchNetworkInfo() {
+  try {
+    const availableDevicesOutput = cockpit.spawn(['nmcli', '-f', 'IN-USE,ssid,mode,chan,rate,signal,bars,security', '-t', 'dev', 'wifi'], {superuser: 'try'}).stream((data) => {
+      console.log(data);
+      const availableNetworks = [];
+      data.split('\n').forEach((line) => {
+        const [inuse, ssid, mode, chan, rate, signal, bars, security] = line.split(':');
+        const frequency = calculateFrequency(chan);
+        availableNetworks.push({inuse, ssid, mode, chan, rate, signal, bars, security, frequency});
+        this.setState({
+          availableNetworks: availableNetworks,
+        });
+      });
+    }).then(() => {
+      console.log('done');
+      this.setState({
+        isFetching: false,
+      });
+    }).catch((error) => console.error(error));
+
+  } catch (error) {
+    console.error('Failed to fetch network info', error);
+    this.setState({ error: error });
+  }
+}
+
+  const reloadNetworkInfo = () => {
+    fetchNetworkInfo();
+  };
+
+  return (
+    <div className="container">
+      <div className="header">
+        <h1>Network Manager</h1>
+        <button type="button" className="btn btn-primary reload-button" onClick={reloadNetworkInfo}>
+          {_('Reload Network List')}
+        </button>
+      </div>
+      {error && (
+        <div className="alert alert-danger" role="alert">
+          {_('Failed to fetch network info. Please check the console for details.')}
+        </div>
+      )}
+      <div className="content">
+        {activeNetwork && (
+          <div className="active-network-wrapper">
+            <ActiveNetwork network={activeNetwork} />
+          </div>
+        )}
+        {isLoading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+          </div>
+        )}
+        {!isLoading && (
+          <>
+            <SearchBar onSearch={/* Add your search function here */} />
+            <NetworkTable activeNetwork={activeNetwork} otherNetworks={availableNetworks.filter((network) => network.inuse !== '*')} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+};

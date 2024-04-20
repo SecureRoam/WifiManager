@@ -1,0 +1,92 @@
+import React, { useState, useEffect } from 'react';
+import cockpit from 'cockpit';
+import ActiveNetwork from './component/network/ActiveNetwork.jsx';
+import NetworkTable from './component/network/NetworkTable.jsx';
+import SearchBar from './component/network/SearchBar.jsx';
+import channelToFrequency from './component/network/utils/channelToFrequency.jsx';
+import './app.scss';
+const _ = cockpit.gettext;
+
+export class Application extends React.Component {
+  constructor() {
+    super();
+    this.state = {
+      hostname: _("Unknown"),
+      availableNetworks: [],
+      activeNetwork: null,
+      error: null,
+      isFetching: false,
+    };
+  }
+
+  componentDidMount() {
+    cockpit.file('/etc/hostname').watch(content => {
+      this.setState({ hostname: content.trim() });
+    });
+    this.fetchNetworkInfo();
+  }
+
+  async fetchNetworkInfo() {
+    try {
+      const availableDevicesOutput = cockpit.spawn(['nmcli', '-f', 'IN-USE,ssid,mode,chan,rate,signal,bars,security', '-t', 'dev', 'wifi'], {superuser: 'try'}).stream((data) => {
+        console.log(data);
+        const availableNetworks = [];
+        data.split('\n').forEach((line) => {
+          const [inuse, ssid, mode, chan, rate, signal, bars, security] = line.split(':');
+          const frequency = channelToFrequency(chan);
+          availableNetworks.push({inuse, ssid, mode, chan, rate, signal, bars, security, frequency});
+        });
+
+        this.setState({
+          availableNetworks: availableNetworks,
+          isFetching: true,
+        });
+        console.log(availableNetworks);
+      }).then(() => console.log('done')).catch((error) => console.error(error));
+
+    } catch (error) {
+      console.error('Failed to fetch network info', error);
+      this.setState({ error: error });
+    }
+  }
+
+  reloadNetworkInfo = () => {
+    this.fetchNetworkInfo();
+  };
+
+  render() {
+    const { hostname, availableNetworks, error, isFetching } = this.state;
+
+    // Separate active network and other networks
+    const activeNetwork = availableNetworks.find((network) => network.inuse === '*');
+    const otherNetworks = availableNetworks.filter((network) => network.inuse !== '*');
+
+    return (
+      <div className="container">
+        <div className="header">
+          <button type="button" className="btn btn-primary reload-button" onClick={this.reloadNetworkInfo}>
+            {_('Reload Network List')}
+          </button>
+        </div>
+        {error && (
+          <div className="alert alert-danger" role="alert">
+            {_('Failed to fetch network info. Please check the console for details.')}
+          </div>
+        )}
+        <div className="content">
+          {activeNetwork && (
+            <div className="active-network-wrapper">
+              <ActiveNetwork network={activeNetwork} />
+            </div>
+          )}
+          {isFetching && (
+            <>
+              <SearchBar onSearch={this.handleSearch} />
+              <NetworkTable activeNetwork={activeNetwork} otherNetworks={otherNetworks} filter={this.state.filter} />
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+}

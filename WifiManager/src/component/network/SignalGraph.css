@@ -1,0 +1,25 @@
+.signal-graph {
+  position: relative;
+  height: 10px;
+  margin: 0.5rem 0;
+}
+
+.signal-graph .bar-outline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, #e9ecef, #dee2e6);
+  border-radius: 5px;
+}
+
+.signal-graph .bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(to right, #6c757d, #343a40);
+  border-radius: 5px;
+  transition: width 0.3s ease-in-out;
+}
