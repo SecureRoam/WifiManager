@@ -8,6 +8,7 @@ function NetworkTable({ activeNetwork, otherNetworks, isLoading, onConnect }) {
   const headers = ['SSID', 'FREQUENCY', 'RATE', 'SIGNAL', 'SECURITY'];
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clickedNetwork, setClickedNetwork] = useState(null);
+  const [loading, setLoading] = useState(false);
   const openModal = () => {
     setIsModalOpen(true);
   };
@@ -22,8 +23,8 @@ function NetworkTable({ activeNetwork, otherNetworks, isLoading, onConnect }) {
     // open modal with clicked network
   };
   const handleConnect = () => {
-    onConnect(clickedNetwork, document.getElementById("password").value);
-    closeModal();
+    setLoading(true);
+    onConnect(clickedNetwork, document.getElementById("password").value, closeModal);
   }
   const id=() => (Math.floor(Math.random() * 100) * Date.now()* Math.floor(Math.random() * 100)).toString(36);
   return (
@@ -42,6 +43,11 @@ function NetworkTable({ activeNetwork, otherNetworks, isLoading, onConnect }) {
               <br />
             </div>
             <button onClick={handleConnect}>Connect</button>
+            {loading && (
+                <div className="loading-overlay">
+                  <div className="loading-spinner"></div>
+                </div>
+            )}
           </Modal>
       )}
       <table className="network-table">

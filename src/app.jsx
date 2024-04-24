@@ -10,19 +10,20 @@ import './app.scss';
 const _ = cockpit.gettext;
 
 export const Application = () => {
-    const [hostname, setHostname] = useState(_('Unknown'));
     const [availableNetworks, setAvailableNetworks] = useState([]);
     const [activeNetwork, setActiveNetwork] = useState(null);
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [filteredNetworks, setFilteredNetworks] = useState([]);
     const [searchNetwork, setSearchNetwork] = useState([]);
+    const [playOnce, setPlayOnce] = useState(true);
+    const [retry, setRetry] = useState(0);
     useEffect(() => {
-        cockpit.file('/etc/hostname').watch(content => {
-            setHostname(content.trim());
-        });
-        fetchNetworkInfo();
-    }, []);
+        if (playOnce) {
+            fetchNetworkInfo();
+            setPlayOnce(false);
+        }
+    }, [playOnce]);
 
     const handleSearch = (searchTerm) => {
         console.log(searchTerm);
@@ -31,22 +32,32 @@ export const Application = () => {
     }
     const fetchNetworkInfo = async () => {
         setIsLoading(true);
+        let resData;
+        console.log('fetching network info');
         try {
             const availableDevicesOutput = cockpit.spawn(['nmcli', '-f', 'IN-USE,ssid,mode,chan,rate,signal,bars,security', '-t', 'dev', 'wifi'], {superuser: 'try'}).stream((data) => {
-                console.log(data);
+                resData= data;
+            }).then(() => {
                 const availableNetworks = [];
-                data.split('\n').forEach((line) => {
+                resData.split('\n').forEach((line) => {
                     const [inuse, ssid, mode, chan, rate, signal, bars, security] = line.split(':');
                     const frequency = channelToFrequency(chan);
                     availableNetworks.push({inuse, ssid, mode, chan, rate, signal, bars, security, frequency});
                 });
-                const activeNetwork = availableNetworks.find((network) => network.inuse === '*');
-                setActiveNetwork(activeNetwork);
+                const activeNetworks = availableNetworks.find((network) => network.inuse === '*');
+                console.log(activeNetworks, activeNetworks != undefined);
+                if(activeNetworks == undefined) {
+                    setActiveNetwork(null);
+                    setRetry(retry + 1);
+                } else {
+                    setActiveNetwork(activeNetworks);
+                }
                 // Filter the availableNetworks array and store the filtered array in a separate state variable
                 setFilteredNetworks(availableNetworks.filter((network) => network.inuse !== '*'));
-            }).then(() => {
+                console.log("stream done");
                 console.log('done');
                 setIsLoading(false);
+
             }).catch((error) => console.error(error));
 
         } catch (error) {
@@ -56,17 +67,21 @@ export const Application = () => {
         }
     };
 
-    const handleConnect = (ssid, password) => {
+    const handleConnect = (ssid, password, closeModal) => {
         cockpit.spawn(['nmcli', 'dev', 'wifi', 'connect', ssid, 'password', password], {superuser: 'try'}).stream((data) => {
             if (data.includes('successfully activated')) {
                 alert('Successfully connected to network : ' + ssid);
-                fetchNetworkInfo();
-            }
-            else {
+                fetchNetworkInfo().then(() => {
+                    closeModal()
+                });
+            } else {
                 alert('Failed to connect to network : ' + ssid);
+                closeModal();
             }
         }).catch((error) => {
             console.error('Failed to connect to network', error);
+            alert('Failed to connect to network : ' + ssid);
+            closeModal();
         });
 
     }
@@ -74,41 +89,46 @@ export const Application = () => {
 
     const reloadNetworkInfo = () => {
         fetchNetworkInfo();
+        window.localStorage.clear();
+        window.sessionStorage.clear();
     };
 
     return (
         <div className="container">
-            <div className="header">
-                <button type="button" className="btn btn-primary reload-button" onClick={reloadNetworkInfo}>
-                    {_('Reload Network List')}
-                </button>
-            </div>
-            {error && (
-                <div className="alert alert-danger" role="alert">
-                    {_('Failed to fetch network info. Please check the console for details.')}
-                </div>
-            )}
-            <div className="content">
-                {activeNetwork && (
-                    <ActiveNetwork network={{inuse: true, currentNetwork: activeNetwork}}/>
-                )}
-                {!activeNetwork && (
-                    <ActiveNetwork network={{inuse: false}}/>
-                )}
+
                 {isLoading && (
                     <div className="loading-overlay">
                         <div className="loading-spinner"></div>
                     </div>
                 )}
                 {!isLoading && (
+
                     <>
+                        {(activeNetwork==null && retry <10) && (reloadNetworkInfo())}
+                    <div className="header">
+                        <button type="button" className="btn btn-primary reload-button" onClick={reloadNetworkInfo}>
+                            {_('Reload Network List')}
+                        </button>
+                    </div>
+                    {error && (
+                        <div className="alert alert-danger" role="alert">
+                            {_('Failed to fetch network info. Please check the console for details.')}
+                        </div>
+                    )}
+                    <div className="content">
+                        {activeNetwork && (
+                            <ActiveNetwork network={{inuse: true, currentNetwork: activeNetwork}}/>
+                        )}
+                        {!activeNetwork && (
+                            <ActiveNetwork network={{inuse: false}}/>
+                        )}
                         <SearchBar onSearch={handleSearch}/>
                         <NetworkTable activeNetwork={activeNetwork}
-                                      otherNetworks={searchNetwork == [] ? searchNetwork : filteredNetworks}
+                                      otherNetworks={searchNetwork === [] ? searchNetwork : filteredNetworks}
                                       onConnect={handleConnect}/>
+                        </div>
                     </>
                 )}
-            </div>
         </div>
     );
 };
