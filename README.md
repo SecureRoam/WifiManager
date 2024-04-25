@@ -1,4 +1,4 @@
-# Cockpit Starter Kit
+# Wifi Manager module
 
 Scaffolding for a [Cockpit](https://cockpit-project.org/) module.
 
@@ -32,6 +32,8 @@ to generate the distribution tarball. In `production` mode, source files are
 automatically minified and compressed. Set `NODE_ENV=production` if you want to
 duplicate this behavior.
 
+You then need to modify the src/manifest.json and replace starter-kit by VpnManager
+
 For development, you usually want to run your module straight out of the git
 tree. To do that, run `make devel-install`, which links your checkout to the
 location were cockpit-bridge looks for packages. If you prefer to do
@@ -39,7 +41,7 @@ this manually:
 
 ```
 mkdir -p ~/.local/share/cockpit
-ln -s `pwd`/dist ~/.local/share/cockpit/starter-kit
+ln -s `pwd`/dist ~/.local/share/cockpit/WifiManager
 ```
 
 After changing the code and running `make` again, reload the Cockpit page in
@@ -70,7 +72,7 @@ set to upload code changes to `~/.local/share/cockpit/` instead of
 To "uninstall" the locally installed version, run `make devel-uninstall`, or
 remove manually the symlink:
 
-    rm ~/.local/share/cockpit/starter-kit
+    rm ~/.local/share/cockpit/WifiManager
 
 # Running eslint
 
