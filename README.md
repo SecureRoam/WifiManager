@@ -32,7 +32,7 @@ to generate the distribution tarball. In `production` mode, source files are
 automatically minified and compressed. Set `NODE_ENV=production` if you want to
 duplicate this behavior.
 
-You then need to modify the src/manifest.json and replace starter-kit by VpnManager
+You then need to modify the src/manifest.json and replace starter-kit by WifiManager
 
 For development, you usually want to run your module straight out of the git
 tree. To do that, run `make devel-install`, which links your checkout to the
